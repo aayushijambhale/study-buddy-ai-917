@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { FiUpload, FiBookOpen, FiHelpCircle, FiMessageCircle, FiMic } from "react-icons/fi";
+import { FiUpload, FiBookOpen, FiHelpCircle, FiMessageCircle, FiMic, FiSun, FiMoon } from "react-icons/fi";
+import { useStudy } from "@/context/StudyContext";
 import { cn } from "@/lib/utils";
 
 export type Tab = "upload" | "notes" | "quiz" | "ask" | "voice";
@@ -61,13 +62,42 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-4 space-y-3">
+        <ThemeToggle />
         <div className="rounded-xl bg-sidebar-accent/40 p-3 text-xs">
           <div className="font-medium opacity-90 mb-1">Current document</div>
           <div className="truncate opacity-80">{pdfName ?? "No PDF uploaded"}</div>
         </div>
       </div>
     </aside>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useStudy();
+  const isDark = theme === "dark";
+  return (
+    <button
+      onClick={toggleTheme}
+      className="w-full flex items-center justify-between rounded-xl bg-sidebar-accent/40 px-3 py-2 text-sm hover:bg-sidebar-accent/60 transition-colors"
+      aria-label="Toggle theme"
+    >
+      <span className="flex items-center gap-2">
+        {isDark ? <FiMoon /> : <FiSun />}
+        <span>{isDark ? "Dark" : "Light"} mode</span>
+      </span>
+      <span
+        className="relative inline-flex h-5 w-9 items-center rounded-full bg-sidebar-border/70 transition-colors"
+        aria-hidden
+      >
+        <motion.span
+          layout
+          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          className="absolute h-4 w-4 rounded-full bg-sidebar-foreground"
+          style={{ left: isDark ? "1.125rem" : "0.125rem" }}
+        />
+      </span>
+    </button>
   );
 }
 
