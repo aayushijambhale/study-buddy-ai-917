@@ -8,6 +8,7 @@ import { useStudy } from "@/context/StudyContext";
 import { askPdf } from "@/lib/study.functions";
 import { useSpeechRecognition, speak, stopSpeaking } from "@/hooks/use-voice";
 import { cn } from "@/lib/utils";
+import { CitedText } from "./CitedText";
 
 export function ChatPanel() {
   const { pdf, chat, setChat } = useStudy();
@@ -107,8 +108,15 @@ export function ChatPanel() {
             >
               {m.role === "assistant" ? (
                 <>
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  <div className="prose prose-sm max-w-none prose-p:text-foreground/85">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p><CitedChildren>{children}</CitedChildren></p>,
+                        li: ({ children }) => <li><CitedChildren>{children}</CitedChildren></li>,
+                      }}
+                    >
+                      {m.content}
+                    </ReactMarkdown>
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
@@ -179,5 +187,20 @@ function Dot({ delay = 0 }: { delay?: number }) {
       animate={{ y: [0, -4, 0] }}
       transition={{ duration: 0.8, repeat: Infinity, delay }}
     />
+  );
+}
+
+/** Walks ReactMarkdown children and replaces [p.N] markers in text nodes with clickable badges. */
+function CitedChildren({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {Array.isArray(children)
+        ? children.map((c, i) =>
+            typeof c === "string" ? <CitedText key={i} text={c} /> : c,
+          )
+        : typeof children === "string"
+          ? <CitedText text={children} />
+          : children}
+    </>
   );
 }

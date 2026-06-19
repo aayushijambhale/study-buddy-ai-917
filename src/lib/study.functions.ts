@@ -68,18 +68,21 @@ ${trimContext(data.text)}`;
 export const generateQuiz = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ text: z.string().min(20) }).parse(d))
   .handler(async ({ data }) => {
-    const prompt = `Create a quiz from the study material below. Return ONLY valid JSON with this exact shape — no commentary, no markdown fences:
+    const prompt = `Create a quiz from the study material below. The material is split into sections marked "--- Page N ---" — use those numbers to cite where each question comes from.
+
+Return ONLY valid JSON with this exact shape — no commentary, no markdown fences:
 
 {
-  "mcq": [ { "question": "...", "options": ["A","B","C","D"], "answer": "A", "explanation": "..." } ],
-  "trueFalse": [ { "question": "...", "answer": "True", "explanation": "..." } ],
-  "short": [ { "question": "...", "answer": "...", "explanation": "..." } ]
+  "mcq": [ { "question": "...", "options": ["A","B","C","D"], "answer": "A", "explanation": "...", "sourcePage": 1 } ],
+  "trueFalse": [ { "question": "...", "answer": "True", "explanation": "...", "sourcePage": 1 } ],
+  "short": [ { "question": "...", "answer": "...", "explanation": "...", "sourcePage": 1 } ]
 }
 
 Rules:
 - mcq: 10 questions, 4 options each, "answer" is one of the option strings (verbatim).
 - trueFalse: 10 questions, "answer" is "True" or "False".
 - short: 5 questions with concise model answers.
+- "sourcePage" MUST be an integer matching the page where the answer is found.
 - Every question must be answerable from the material.
 
 STUDY MATERIAL:
@@ -87,9 +90,9 @@ ${trimContext(data.text, 50_000)}`;
 
     const { text } = await generateText({ model: getModel(), prompt });
     type QuizShape = {
-      mcq: { question: string; options: string[]; answer: string; explanation: string }[];
-      trueFalse: { question: string; answer: string; explanation: string }[];
-      short: { question: string; answer: string; explanation: string }[];
+      mcq: { question: string; options: string[]; answer: string; explanation: string; sourcePage?: number }[];
+      trueFalse: { question: string; answer: string; explanation: string; sourcePage?: number }[];
+      short: { question: string; answer: string; explanation: string; sourcePage?: number }[];
     };
     const parsed = tryParseJson<QuizShape>(text);
     if (!parsed) throw new Error("Quiz generation failed: could not parse model output.");
@@ -139,9 +142,10 @@ export const askPdf = createServerFn({ method: "POST" })
       .join("\n");
 
     const prompt = `You are a study tutor. Answer the student's question using ONLY the document below.
+- The document is split into sections marked "--- Page N ---".
 - If the answer is not in the document, say so plainly.
-- Cite the section/heading you used in parentheses when possible.
-- Keep answers focused and use Markdown.
+- Inline citation: whenever you state a fact from the document, add a citation marker like [p.3] (or [p.3,5] for multiple pages) at the end of that sentence. Use the page numbers from the section markers.
+- Keep answers focused. Use Markdown.
 
 DOCUMENT:
 ${trimContext(data.text, 55_000)}
