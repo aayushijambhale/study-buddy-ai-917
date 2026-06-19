@@ -189,3 +189,18 @@ function Dot({ delay = 0 }: { delay?: number }) {
     />
   );
 }
+
+/** Walks ReactMarkdown children and replaces [p.N] markers in text nodes with clickable badges. */
+function CitedChildren({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {Array.isArray(children)
+        ? children.map((c, i) =>
+            typeof c === "string" ? <CitedText key={i} text={c} /> : c,
+          )
+        : typeof children === "string"
+          ? <CitedText text={children} />
+          : children}
+    </>
+  );
+}
