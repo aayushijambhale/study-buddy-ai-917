@@ -137,8 +137,11 @@ function MCQList({ quiz }: { quiz: QuizData }) {
         const correct = q.answer;
         return (
           <div key={i} className="glass rounded-2xl p-5">
-            <div className="font-semibold mb-3">
-              {i + 1}. {q.question}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="font-semibold">
+                {i + 1}. {q.question}
+              </div>
+              <SourceBadge page={q.sourcePage} />
             </div>
             <div className="grid sm:grid-cols-2 gap-2">
               {q.options.map((opt) => {
@@ -219,8 +222,11 @@ function TFList({ quiz }: { quiz: QuizData }) {
         const picked = answers[i];
         return (
           <div key={i} className="glass rounded-2xl p-5">
-            <div className="font-semibold mb-3">
-              {i + 1}. {q.question}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="font-semibold">
+                {i + 1}. {q.question}
+              </div>
+              <SourceBadge page={q.sourcePage} />
             </div>
             <div className="flex gap-2">
               {["True", "False"].map((v) => {
