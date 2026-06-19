@@ -8,6 +8,7 @@ import { NotesPanel } from "@/components/study/NotesPanel";
 import { QuizPanel } from "@/components/study/QuizPanel";
 import { ChatPanel } from "@/components/study/ChatPanel";
 import { VoicePanel } from "@/components/study/VoicePanel";
+import { PdfViewer } from "@/components/study/PdfViewer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/")({
   component: () => (
     <StudyProvider>
       <App />
+      <PdfViewer />
       <Toaster richColors position="top-right" />
     </StudyProvider>
   ),
