@@ -10,7 +10,7 @@ import { speak, stopSpeaking } from "@/hooks/use-voice";
 import { exportStudyReport } from "@/lib/export-pdf";
 
 export function NotesPanel() {
-  const { pdf, notes, setNotes, quiz, explanations, addExplanation } = useStudy();
+  const { pdf, notes, setNotes, quiz, explanations, addExplanation, bump } = useStudy();
   const [loading, setLoading] = useState(false);
   const [selection, setSelection] = useState("");
   const [simpleText, setSimpleText] = useState("");
@@ -25,6 +25,7 @@ export function NotesPanel() {
     try {
       const res = await generateNotes({ data: { text: pdf.content, pdfName: pdf.pdfName } });
       setNotes(res.notes);
+      bump("notesGenerated");
     } catch (e) {
       console.error(e);
       toast.error("Couldn't generate notes. Try again.");
