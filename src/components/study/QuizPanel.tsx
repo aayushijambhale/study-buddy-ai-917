@@ -27,7 +27,7 @@ function SourceBadge({ page }: { page?: number }) {
 type Mode = "mcq" | "trueFalse" | "short";
 
 export function QuizPanel() {
-  const { pdf, quiz, setQuiz } = useStudy();
+  const { pdf, quiz, setQuiz, bump } = useStudy();
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("mcq");
 
@@ -38,6 +38,7 @@ export function QuizPanel() {
     try {
       const q = await generateQuiz({ data: { text: pdf.content } });
       setQuiz(q);
+      bump("quizzesGenerated");
       toast.success("Quiz ready!");
     } catch (e) {
       console.error(e);

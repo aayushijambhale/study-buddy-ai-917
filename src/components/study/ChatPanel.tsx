@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { CitedText } from "./CitedText";
 
 export function ChatPanel() {
-  const { pdf, chat, setChat } = useStudy();
+  const { pdf, chat, setChat, bump } = useStudy();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,6 +40,7 @@ export function ChatPanel() {
     const newChat = [...chat, { role: "user" as const, content: q }];
     setChat(newChat);
     setBusy(true);
+    bump("questionsAsked");
     try {
       const res = await askPdf({
         data: {
