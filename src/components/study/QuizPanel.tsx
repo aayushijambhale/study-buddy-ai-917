@@ -292,8 +292,11 @@ function ShortList({ quiz }: { quiz: QuizData }) {
     <div className="space-y-4">
       {quiz.short.map((q, i) => (
         <div key={i} className="glass rounded-2xl p-5">
-          <div className="font-semibold mb-3">
-            {i + 1}. {q.question}
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="font-semibold">
+              {i + 1}. {q.question}
+            </div>
+            <SourceBadge page={q.sourcePage} />
           </div>
           <textarea
             className="w-full rounded-xl border bg-card p-3 text-sm min-h-24"
