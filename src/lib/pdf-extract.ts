@@ -1,14 +1,19 @@
 // Client-side PDF text extraction using pdfjs-dist.
 import * as pdfjsLib from "pdfjs-dist";
-// Bundled worker URL (Vite handles ?url).
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+
+export interface PdfPage {
+  page: number;
+  text: string;
+}
 
 export interface ExtractedPdf {
   pdfName: string;
   totalPages: number;
   content: string;
+  pages: PdfPage[];
 }
 
 export async function extractPdfText(
@@ -18,7 +23,7 @@ export async function extractPdfText(
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const total = pdf.numPages;
-  const parts: string[] = [];
+  const pages: PdfPage[] = [];
 
   for (let i = 1; i <= total; i++) {
     const page = await pdf.getPage(i);
@@ -28,13 +33,14 @@ export async function extractPdfText(
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
-    parts.push(`\n\n--- Page ${i} ---\n${pageText}`);
+    pages.push({ page: i, text: pageText });
     onProgress?.(Math.round((i / total) * 100));
   }
 
-  return {
-    pdfName: file.name,
-    totalPages: total,
-    content: parts.join("\n").trim(),
-  };
+  const content = pages
+    .map((p) => `\n\n--- Page ${p.page} ---\n${p.text}`)
+    .join("\n")
+    .trim();
+
+  return { pdfName: file.name, totalPages: total, content, pages };
 }
