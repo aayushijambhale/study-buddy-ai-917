@@ -1,11 +1,28 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiCheck, FiX, FiRefreshCw, FiAward } from "react-icons/fi";
+import { FiCheck, FiX, FiRefreshCw, FiAward, FiFileText } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useStudy, type QuizData } from "@/context/StudyContext";
 import { generateQuiz } from "@/lib/study.functions";
 import { cn } from "@/lib/utils";
+
+function SourceBadge({ page }: { page?: number }) {
+  const { openPdfAt, pdf } = useStudy();
+  if (!page) return null;
+  return (
+    <button
+      onClick={() => {
+        const snippet = pdf?.pages.find((pg) => pg.page === page)?.text.slice(0, 280);
+        openPdfAt(page, snippet);
+      }}
+      className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30 hover:bg-accent/25 transition-colors"
+      title={`View source on page ${page}`}
+    >
+      <FiFileText className="size-3" /> Source p.{page}
+    </button>
+  );
+}
 
 type Mode = "mcq" | "trueFalse" | "short";
 
