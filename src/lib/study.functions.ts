@@ -4,11 +4,12 @@ import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const MODEL = "google/gemini-3-flash-preview";
+const VISION_MODEL = "google/gemini-2.5-flash";
 
-function getModel() {
+function getModel(name: string = MODEL) {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  return createLovableAiGatewayProvider(key)(MODEL);
+  return createLovableAiGatewayProvider(key)(name);
 }
 
 function trimContext(text: string, max = 60_000) {
@@ -16,12 +17,8 @@ function trimContext(text: string, max = 60_000) {
   return text.slice(0, max) + "\n\n[...truncated...]";
 }
 
-// Strip ```json fences and return parsed JSON or null.
 function tryParseJson<T = unknown>(raw: string): T | null {
-  const cleaned = raw
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/i, "")
-    .trim();
+  const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
   const first = cleaned.indexOf("{");
   const firstArr = cleaned.indexOf("[");
   const start =
@@ -38,7 +35,7 @@ function tryParseJson<T = unknown>(raw: string): T | null {
   }
 }
 
-/* -------------------- Generate Notes -------------------- */
+/* -------------------- Notes -------------------- */
 
 export const generateNotes = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -52,6 +49,7 @@ Include:
 2. **Key Concepts & Definitions** – bullet list, bold the term.
 3. **Important Formulas / Facts** – if any.
 4. **Exam Revision Notes** – the 10 most important takeaways as a numbered list.
+5. **Exam Tips** – 3 short pieces of advice.
 
 Use clear headings (##), keep prose tight, and avoid filler.
 
@@ -63,7 +61,7 @@ ${trimContext(data.text)}`;
     return { notes: text };
   });
 
-/* -------------------- Generate Quiz -------------------- */
+/* -------------------- Quiz -------------------- */
 
 export const generateQuiz = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ text: z.string().min(20) }).parse(d))
@@ -121,7 +119,7 @@ ${data.text}`;
     return { explanation: text };
   });
 
-/* -------------------- Ask PDF (RAG-lite) -------------------- */
+/* -------------------- Ask PDF -------------------- */
 
 export const askPdf = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -144,7 +142,7 @@ export const askPdf = createServerFn({ method: "POST" })
     const prompt = `You are a study tutor. Answer the student's question using ONLY the document below.
 - The document is split into sections marked "--- Page N ---".
 - If the answer is not in the document, say so plainly.
-- Inline citation: whenever you state a fact from the document, add a citation marker like [p.3] (or [p.3,5] for multiple pages) at the end of that sentence. Use the page numbers from the section markers.
+- Inline citation: whenever you state a fact, append [p.N] (or [p.3,5] for multi).
 - Keep answers focused. Use Markdown.
 
 DOCUMENT:
@@ -155,4 +153,119 @@ STUDENT QUESTION: ${data.question}`;
 
     const { text } = await generateText({ model: getModel(), prompt });
     return { answer: text };
+  });
+
+/* -------------------- Flashcards -------------------- */
+
+export const generateFlashcards = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ text: z.string().min(20) }).parse(d))
+  .handler(async ({ data }) => {
+    const prompt = `Create 12 high-quality study flashcards from the material below.
+
+Return ONLY valid JSON, no fences, no commentary:
+{ "cards": [ { "front": "Term or question", "back": "Concise definition or answer (1-3 sentences)" } ] }
+
+Rules:
+- Mix definitions, key concepts, and 'why does this matter' style cards.
+- Front side: short prompt (term or question). Back: focused answer.
+- All content must be answerable from the material.
+
+MATERIAL:
+${trimContext(data.text, 45_000)}`;
+    const { text } = await generateText({ model: getModel(), prompt });
+    const parsed = tryParseJson<{ cards: { front: string; back: string }[] }>(text);
+    if (!parsed?.cards) throw new Error("Flashcard generation failed.");
+    return { cards: parsed.cards.filter((c) => c.front && c.back) };
+  });
+
+/* -------------------- Study Plan -------------------- */
+
+export const generateStudyPlan = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        examDate: z.string().min(4),
+        chapters: z.string().min(2),
+        dailyHours: z.number().min(0.5).max(16),
+        context: z.string().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const prompt = `You are an academic coach. Build a realistic day-by-day study plan.
+
+Today's date: ${today}
+Exam date: ${data.examDate}
+Daily study hours available: ${data.dailyHours}
+Chapters / topics remaining:
+${data.chapters}
+
+${data.context ? `Optional context from the student's PDF:\n${trimContext(data.context, 8_000)}\n` : ""}
+
+Return ONLY valid JSON, no fences:
+{
+  "overview": "1-2 sentence strategy",
+  "totalDays": <int>,
+  "days": [
+    { "day": 1, "date": "YYYY-MM-DD", "focus": "Headline of the day", "tasks": ["task 1", "task 2"] }
+  ]
+}
+
+Rules:
+- Spread chapters across the available days proportionally to weight.
+- Reserve the LAST 1-2 days for full revision + mock test.
+- Each day must have 2-5 concrete tasks sized for the available hours.
+- Do not exceed dailyHours.`;
+
+    const { text } = await generateText({ model: getModel(), prompt });
+    const parsed = tryParseJson<{
+      overview: string;
+      totalDays: number;
+      days: { day: number; date?: string; focus: string; tasks: string[] }[];
+    }>(text);
+    if (!parsed?.days) throw new Error("Study plan generation failed.");
+    return {
+      overview: parsed.overview ?? "",
+      totalDays: parsed.totalDays ?? parsed.days.length,
+      days: parsed.days,
+    };
+  });
+
+/* -------------------- Image description (Vision) -------------------- */
+
+export const describeImage = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        dataUrl: z.string().startsWith("data:image/"),
+        prompt: z.string().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const instruction =
+      data.prompt ??
+      `Describe this image for a visually impaired student. Cover:
+
+1. **Overview** — one sentence: what is this image?
+2. **Layout & Objects** — what is positioned where (top/bottom/left/right/center).
+3. **Important Information** — any text labels, numbers, arrows, or annotations, read verbatim.
+4. **Educational Context** — if it's a diagram, explain what concept it illustrates and how the parts relate.
+
+Use clear, calm prose with short paragraphs. Avoid filler. Use Markdown.`;
+
+    const { text } = await generateText({
+      model: getModel(VISION_MODEL),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: instruction },
+            { type: "image", image: data.dataUrl },
+          ],
+        },
+      ],
+    });
+    return { description: text };
   });
