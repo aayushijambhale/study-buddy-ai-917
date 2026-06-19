@@ -8,7 +8,7 @@ import { extractPdfText } from "@/lib/pdf-extract";
 import { useStudy } from "@/context/StudyContext";
 
 export function UploadPanel({ onDone }: { onDone?: () => void }) {
-  const { pdf, setPdf } = useStudy();
+  const { pdf, setPdf, setFile } = useStudy();
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -29,6 +29,7 @@ export function UploadPanel({ onDone }: { onDone?: () => void }) {
       try {
         const data = await extractPdfText(file, setProgress);
         setPdf(data);
+        setFile(file);
         toast.success(`Extracted ${data.totalPages} pages from ${data.pdfName}`);
         onDone?.();
       } catch (e) {
@@ -38,7 +39,7 @@ export function UploadPanel({ onDone }: { onDone?: () => void }) {
         setBusy(false);
       }
     },
-    [setPdf, onDone],
+    [setPdf, setFile, onDone],
   );
 
   return (
