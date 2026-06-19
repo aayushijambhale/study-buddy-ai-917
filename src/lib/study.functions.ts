@@ -86,13 +86,18 @@ STUDY MATERIAL:
 ${trimContext(data.text, 50_000)}`;
 
     const { text } = await generateText({ model: getModel(), prompt });
-    const parsed = tryParseJson<{
-      mcq: unknown[];
-      trueFalse: unknown[];
-      short: unknown[];
-    }>(text);
+    type QuizShape = {
+      mcq: { question: string; options: string[]; answer: string; explanation: string }[];
+      trueFalse: { question: string; answer: string; explanation: string }[];
+      short: { question: string; answer: string; explanation: string }[];
+    };
+    const parsed = tryParseJson<QuizShape>(text);
     if (!parsed) throw new Error("Quiz generation failed: could not parse model output.");
-    return parsed;
+    return {
+      mcq: Array.isArray(parsed.mcq) ? parsed.mcq : [],
+      trueFalse: Array.isArray(parsed.trueFalse) ? parsed.trueFalse : [],
+      short: Array.isArray(parsed.short) ? parsed.short : [],
+    };
   });
 
 /* -------------------- Simplify -------------------- */
