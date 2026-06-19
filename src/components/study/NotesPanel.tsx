@@ -1,15 +1,16 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
-import { FiZap, FiVolume2, FiMessageSquare } from "react-icons/fi";
+import { FiZap, FiVolume2, FiMessageSquare, FiDownload } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useStudy } from "@/context/StudyContext";
 import { generateNotes, simplify } from "@/lib/study.functions";
 import { speak, stopSpeaking } from "@/hooks/use-voice";
+import { exportStudyReport } from "@/lib/export-pdf";
 
 export function NotesPanel() {
-  const { pdf, notes, setNotes } = useStudy();
+  const { pdf, notes, setNotes, quiz, explanations, addExplanation } = useStudy();
   const [loading, setLoading] = useState(false);
   const [selection, setSelection] = useState("");
   const [simpleText, setSimpleText] = useState("");
@@ -44,10 +45,27 @@ export function NotesPanel() {
     try {
       const res = await simplify({ data: { text: sel } });
       setSimpleText(res.explanation);
+      addExplanation({ source: sel, explanation: res.explanation });
     } catch {
       toast.error("Couldn't simplify that.");
     } finally {
       setSimpleLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    if (!pdf) return;
+    try {
+      exportStudyReport({
+        pdfName: pdf.pdfName,
+        notes,
+        quiz,
+        explanations,
+      });
+      toast.success("Report downloaded");
+    } catch (e) {
+      console.error(e);
+      toast.error("Export failed");
     }
   };
 
@@ -61,7 +79,10 @@ export function NotesPanel() {
             <span className="font-medium text-foreground">{pdf.pdfName}</span>.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={!notes && !quiz}>
+            <FiDownload className="mr-1" /> Export PDF
+          </Button>
           {notes && (
             <Button variant="outline" onClick={() => speak(notes.replace(/[#*_`>-]/g, ""))}>
               <FiVolume2 className="mr-1" /> Read aloud
