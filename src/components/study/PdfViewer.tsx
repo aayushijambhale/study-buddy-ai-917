@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import type * as PdfJsTypes from "pdfjs-dist";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiX, FiChevronLeft, FiChevronRight, FiZoomIn, FiZoomOut } from "react-icons/fi";
 import { useStudy } from "@/context/StudyContext";
 import { Button } from "@/components/ui/button";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+let pdfjsLibPromise: Promise<typeof PdfJsTypes> | null = null;
+async function loadPdfjs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = (async () => {
+      const lib = await import("pdfjs-dist");
+      const workerSrc = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+      lib.GlobalWorkerOptions.workerSrc = workerSrc;
+      return lib;
+    })();
+  }
+  return pdfjsLibPromise;
+}
 
 export function PdfViewer() {
   const { viewer, closeViewer, file, pdf } = useStudy();
@@ -14,7 +24,8 @@ export function PdfViewer() {
   const [scale, setScale] = useState(1.25);
   const [loading, setLoading] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const docRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const docRef = useRef<PdfJsTypes.PDFDocumentProxy | null>(null);
+
 
   // Load doc when viewer opens
   useEffect(() => {
@@ -24,6 +35,7 @@ export function PdfViewer() {
       setLoading(true);
       try {
         const buf = await file.arrayBuffer();
+        const pdfjsLib = await loadPdfjs();
         const doc = await pdfjsLib.getDocument({ data: buf }).promise;
         if (cancelled) return;
         docRef.current = doc;

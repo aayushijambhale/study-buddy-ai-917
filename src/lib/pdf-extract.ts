@@ -1,8 +1,5 @@
 // Client-side PDF text extraction using pdfjs-dist.
-import * as pdfjsLib from "pdfjs-dist";
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+// Imports are dynamic to avoid SSR (pdfjs touches DOMMatrix at module scope).
 
 export interface PdfPage {
   page: number;
@@ -21,6 +18,9 @@ export async function extractPdfText(
   onProgress?: (pct: number) => void,
 ): Promise<ExtractedPdf> {
   const buf = await file.arrayBuffer();
+  const pdfjsLib = await import("pdfjs-dist");
+  const workerSrc = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const total = pdf.numPages;
   const pages: PdfPage[] = [];
