@@ -1,20 +1,23 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
-import { FiZap, FiVolume2, FiMessageSquare, FiDownload } from "react-icons/fi";
+import { FiZap, FiVolume2, FiMessageSquare, FiDownload, FiGlobe } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useStudy } from "@/context/StudyContext";
-import { generateNotes, simplify } from "@/lib/study.functions";
+import { generateNotes, simplify, translateText } from "@/lib/study.functions";
 import { speak, stopSpeaking } from "@/hooks/use-voice";
 import { exportStudyReport } from "@/lib/export-pdf";
 
 export function NotesPanel() {
-  const { pdf, notes, setNotes, quiz, explanations, addExplanation, bump } = useStudy();
+  const { pdf, notes, setNotes, quiz, explanations, addExplanation, bump, awardXp, language } =
+    useStudy();
   const [loading, setLoading] = useState(false);
   const [selection, setSelection] = useState("");
   const [simpleText, setSimpleText] = useState("");
   const [simpleLoading, setSimpleLoading] = useState(false);
+  const [translated, setTranslated] = useState("");
+  const [translating, setTranslating] = useState(false);
 
   if (!pdf) {
     return <Empty msg="Upload a PDF first to generate notes." />;
@@ -25,7 +28,9 @@ export function NotesPanel() {
     try {
       const res = await generateNotes({ data: { text: pdf.content, pdfName: pdf.pdfName } });
       setNotes(res.notes);
+      setTranslated("");
       bump("notesGenerated");
+      awardXp(15);
     } catch (e) {
       console.error(e);
       toast.error("Couldn't generate notes. Try again.");
@@ -47,10 +52,32 @@ export function NotesPanel() {
       const res = await simplify({ data: { text: sel } });
       setSimpleText(res.explanation);
       addExplanation({ source: sel, explanation: res.explanation });
+      awardXp(3);
     } catch {
       toast.error("Couldn't simplify that.");
     } finally {
       setSimpleLoading(false);
+    }
+  };
+
+  const translate = async () => {
+    if (!notes) return;
+    if (language.code === "en") {
+      toast.info("Pick a non-English language in the sidebar to translate.");
+      return;
+    }
+    setTranslating(true);
+    setTranslated("");
+    try {
+      const res = await translateText({ data: { text: notes, targetLanguage: language.name } });
+      setTranslated(res.translation);
+      awardXp(5);
+      toast.success(`Translated to ${language.name}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Translation failed.");
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -59,7 +86,7 @@ export function NotesPanel() {
     try {
       exportStudyReport({
         pdfName: pdf.pdfName,
-        notes,
+        notes: translated || notes,
         quiz,
         explanations,
       });
@@ -69,6 +96,9 @@ export function NotesPanel() {
       toast.error("Export failed");
     }
   };
+
+  const displayNotes = translated || notes;
+  const readLang = translated ? language.bcp47 : "en-US";
 
   return (
     <div className="space-y-6">
@@ -84,12 +114,23 @@ export function NotesPanel() {
           <Button variant="outline" onClick={handleExport} disabled={!notes && !quiz}>
             <FiDownload className="mr-1" /> Export PDF
           </Button>
-          {notes && (
-            <Button variant="outline" onClick={() => speak(notes.replace(/[#*_`>-]/g, ""))}>
+          {notes && language.code !== "en" && (
+            <Button variant="outline" onClick={translate} disabled={translating}>
+              <FiGlobe className="mr-1" />
+              {translating ? "Translating…" : `Translate to ${language.name}`}
+            </Button>
+          )}
+          {translated && (
+            <Button variant="ghost" onClick={() => setTranslated("")}>
+              Show original
+            </Button>
+          )}
+          {displayNotes && (
+            <Button variant="outline" onClick={() => { speak(displayNotes.replace(/[#*_`>-]/g, ""), readLang); bump("readAloudCount"); }}>
               <FiVolume2 className="mr-1" /> Read aloud
             </Button>
           )}
-          {notes && (
+          {displayNotes && (
             <Button variant="ghost" onClick={stopSpeaking}>
               Stop
             </Button>
@@ -105,14 +146,19 @@ export function NotesPanel() {
       )}
       {loading && <SkeletonBlock />}
 
-      {notes && (
+      {displayNotes && (
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           className="glass rounded-2xl p-6"
         >
+          {translated && (
+            <div className="mb-3 text-xs inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/15 text-accent border border-accent/30">
+              <FiGlobe /> Showing {language.name} translation
+            </div>
+          )}
           <div className="prose prose-sm md:prose-base max-w-none prose-headings:text-foreground prose-strong:text-foreground prose-p:text-foreground/85">
-            <ReactMarkdown>{notes}</ReactMarkdown>
+            <ReactMarkdown>{displayNotes}</ReactMarkdown>
           </div>
           <div className="mt-4 flex items-center gap-2 border-t pt-4">
             <FiMessageSquare className="text-accent" />

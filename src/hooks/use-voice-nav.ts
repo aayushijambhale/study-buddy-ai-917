@@ -20,6 +20,7 @@ export type NavCommand =
   | "flashcards"
   | "planner"
   | "image"
+  | "mindmap"
   | "dashboard"
   | "read"
   | "stop";
@@ -31,9 +32,10 @@ const KEYWORDS: Record<NavCommand, string[]> = {
   ask: ["ask", "ask pdf", "chat", "ask question"],
   voice: ["voice", "voice tutor"],
   flashcards: ["flashcards", "flash cards", "open flashcards"],
-  planner: ["planner", "study planner", "plan"],
+  planner: ["planner", "study planner", "plan", "pomodoro", "timer"],
   image: ["image", "describe image", "open image"],
-  dashboard: ["dashboard", "open dashboard", "stats"],
+  mindmap: ["mind map", "mindmap", "concept map"],
+  dashboard: ["dashboard", "open dashboard", "stats", "progress"],
   read: ["read aloud", "read it"],
   stop: ["stop", "stop reading", "be quiet"],
 };

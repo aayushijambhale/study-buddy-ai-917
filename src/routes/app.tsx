@@ -12,6 +12,7 @@ import { FlashcardsPanel } from "@/components/study/FlashcardsPanel";
 import { PlannerPanel } from "@/components/study/PlannerPanel";
 import { ImageDescPanel } from "@/components/study/ImageDescPanel";
 import { DashboardPanel } from "@/components/study/DashboardPanel";
+import { MindMapPanel } from "@/components/study/MindMapPanel";
 import { PdfViewer } from "@/components/study/PdfViewer";
 import { useVoiceNav, type NavCommand } from "@/hooks/use-voice-nav";
 import { speak, stopSpeaking } from "@/hooks/use-voice";
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/app")({
       {
         name: "description",
         content:
-          "Upload PDFs, generate notes, quizzes, flashcards, study plans and image descriptions, all in an accessibility-first workspace.",
+          "Upload PDFs or URLs and generate notes, quizzes, flashcards with spaced repetition, mind maps, AI-graded answers and translations in an accessibility-first workspace.",
       },
     ],
   }),
@@ -41,7 +42,7 @@ export const Route = createFileRoute("/app")({
 
 function App() {
   const [tab, setTab] = useState<Tab>("upload");
-  const { pdf, notes, bump } = useStudy();
+  const { pdf, notes, bump, language } = useStudy();
   const navigate = useNavigate();
 
   const handleCommand = (cmd: NavCommand) => {
@@ -55,11 +56,12 @@ function App() {
       flashcards: "flashcards",
       planner: "planner",
       image: "image",
+      mindmap: "mindmap",
       dashboard: "dashboard",
     };
     if (cmd === "read") {
       if (notes) {
-        speak(notes.replace(/[#*_`>-]/g, ""));
+        speak(notes.replace(/[#*_`>-]/g, ""), language.bcp47);
         bump("readAloudCount");
       } else toast.info("Generate notes first.");
       return;
@@ -112,6 +114,7 @@ function App() {
         {tab === "notes" && <NotesPanel />}
         {tab === "quiz" && <QuizPanel />}
         {tab === "flashcards" && <FlashcardsPanel />}
+        {tab === "mindmap" && <MindMapPanel />}
         {tab === "ask" && <ChatPanel />}
         {tab === "planner" && <PlannerPanel />}
         {tab === "voice" && <VoicePanel />}
