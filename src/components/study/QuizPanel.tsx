@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiCheck, FiX, FiRefreshCw, FiAward, FiFileText } from "react-icons/fi";
+import { FiCheck, FiX, FiRefreshCw, FiAward, FiFileText, FiZap } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useStudy, type QuizData } from "@/context/StudyContext";
-import { generateQuiz } from "@/lib/study.functions";
+import { useStudy, type QuizData, type QuizShort } from "@/context/StudyContext";
+import { generateQuiz, gradeShortAnswer } from "@/lib/study.functions";
 import { cn } from "@/lib/utils";
 
 function SourceBadge({ page }: { page?: number }) {
@@ -27,7 +27,7 @@ function SourceBadge({ page }: { page?: number }) {
 type Mode = "mcq" | "trueFalse" | "short";
 
 export function QuizPanel() {
-  const { pdf, quiz, setQuiz, bump } = useStudy();
+  const { pdf, quiz, setQuiz, bump, awardXp } = useStudy();
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>("mcq");
 
@@ -39,6 +39,7 @@ export function QuizPanel() {
       const q = await generateQuiz({ data: { text: pdf.content } });
       setQuiz(q);
       bump("quizzesGenerated");
+      awardXp(15);
       toast.success("Quiz ready!");
     } catch (e) {
       console.error(e);
@@ -287,42 +288,121 @@ function TFList({ quiz }: { quiz: QuizData }) {
   );
 }
 
+interface GradeResult {
+  score: number;
+  verdict: string;
+  feedback: string;
+  missing: string[];
+}
+
 function ShortList({ quiz }: { quiz: QuizData }) {
-  const [shown, setShown] = useState<Record<number, boolean>>({});
   return (
     <div className="space-y-4">
       {quiz.short.map((q, i) => (
-        <div key={i} className="glass rounded-2xl p-5">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="font-semibold">
-              {i + 1}. {q.question}
+        <ShortItem key={i} q={q} idx={i} />
+      ))}
+    </div>
+  );
+}
+
+function ShortItem({ q, idx }: { q: QuizShort; idx: number }) {
+  const { bump, awardXp } = useStudy();
+  const [answer, setAnswer] = useState("");
+  const [grading, setGrading] = useState(false);
+  const [grade, setGrade] = useState<GradeResult | null>(null);
+  const [showModel, setShowModel] = useState(false);
+
+  const grade_ = async () => {
+    if (!answer.trim()) {
+      toast.info("Type your answer first.");
+      return;
+    }
+    setGrading(true);
+    try {
+      const res = await gradeShortAnswer({
+        data: { question: q.question, modelAnswer: q.answer, studentAnswer: answer },
+      });
+      setGrade(res);
+      bump("answersGraded");
+      awardXp(res.score);
+    } catch (e) {
+      console.error(e);
+      toast.error("Grading failed.");
+    } finally {
+      setGrading(false);
+    }
+  };
+
+  const verdictColor =
+    grade?.verdict === "Correct"
+      ? "border-accent bg-accent/10 text-accent"
+      : grade?.verdict === "Incorrect"
+      ? "border-destructive bg-destructive/10 text-destructive"
+      : "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+
+  return (
+    <div className="glass rounded-2xl p-5">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="font-semibold">
+          {idx + 1}. {q.question}
+        </div>
+        <SourceBadge page={q.sourcePage} />
+      </div>
+      <textarea
+        className="w-full rounded-xl border bg-card p-3 text-sm min-h-24"
+        placeholder="Type your answer…"
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        disabled={grading}
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={grade_} disabled={grading || !answer.trim()}>
+          <FiZap className="mr-1" /> {grading ? "Grading…" : "Grade my answer"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowModel((s) => !s)}
+        >
+          {showModel ? "Hide" : "Show"} model answer
+        </Button>
+      </div>
+
+      {grade && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn("mt-4 rounded-xl border p-4 space-y-2", verdictColor)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="font-semibold flex items-center gap-2">
+              <FiAward /> {grade.verdict}
             </div>
-            <SourceBadge page={q.sourcePage} />
+            <div className="text-2xl font-bold tabular-nums">{grade.score}/10</div>
           </div>
-          <textarea
-            className="w-full rounded-xl border bg-card p-3 text-sm min-h-24"
-            placeholder="Type your answer…"
-          />
-          <div className="mt-3 flex items-center justify-between">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShown((s) => ({ ...s, [i]: !s[i] }))}
-            >
-              {shown[i] ? "Hide" : "Show"} model answer
-            </Button>
-          </div>
-          {shown[i] && (
-            <div className="mt-3 rounded-xl bg-accent/10 border border-accent/30 p-3 text-sm">
-              <div className="font-semibold mb-1">Model answer</div>
-              <div>{q.answer}</div>
-              {q.explanation && (
-                <div className="mt-2 text-muted-foreground">{q.explanation}</div>
-              )}
+          <div className="text-sm">{grade.feedback}</div>
+          {grade.missing.length > 0 && (
+            <div className="text-sm">
+              <span className="font-medium">Missing:</span>
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                {grade.missing.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {showModel && (
+        <div className="mt-3 rounded-xl bg-accent/10 border border-accent/30 p-3 text-sm">
+          <div className="font-semibold mb-1">Model answer</div>
+          <div>{q.answer}</div>
+          {q.explanation && (
+            <div className="mt-2 text-muted-foreground">{q.explanation}</div>
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
