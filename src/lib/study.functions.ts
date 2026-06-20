@@ -269,3 +269,170 @@ Use clear, calm prose with short paragraphs. Avoid filler. Use Markdown.`;
     });
     return { description: text };
   });
+
+/* -------------------- Mind Map -------------------- */
+
+export const generateMindMap = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ text: z.string().min(20) }).parse(d))
+  .handler(async ({ data }) => {
+    const prompt = `Build a concept mind map from this study material.
+
+Return ONLY valid JSON, no fences:
+{
+  "topic": "Central topic (3-6 words)",
+  "branches": [
+    {
+      "label": "Main branch (1-3 words)",
+      "color": "#hex",
+      "children": [
+        { "label": "Sub-concept (1-4 words)", "detail": "One short sentence (max 18 words)" }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Exactly 6 branches.
+- Each branch: 3-5 children.
+- Use distinct vibrant hex colors for each branch (e.g. #6366f1, #ec4899, #f59e0b, #10b981, #06b6d4, #ef4444).
+- Keep labels SHORT — they must fit on a graph.
+
+MATERIAL:
+${trimContext(data.text, 40_000)}`;
+    const { text } = await generateText({ model: getModel(), prompt });
+    const parsed = tryParseJson<{
+      topic: string;
+      branches: { label: string; color: string; children: { label: string; detail: string }[] }[];
+    }>(text);
+    if (!parsed?.branches) throw new Error("Mind map generation failed.");
+    return parsed;
+  });
+
+/* -------------------- AI Short-Answer Grading -------------------- */
+
+export const gradeShortAnswer = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        question: z.string().min(2),
+        modelAnswer: z.string().min(1),
+        studentAnswer: z.string().min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const prompt = `You are a fair exam grader. Compare the student's answer against the model answer and grade it.
+
+QUESTION: ${data.question}
+MODEL ANSWER: ${data.modelAnswer}
+STUDENT ANSWER: ${data.studentAnswer}
+
+Return ONLY valid JSON, no fences:
+{
+  "score": <0-10 integer>,
+  "verdict": "Correct" | "Partially correct" | "Incorrect",
+  "feedback": "1-2 sentence feedback addressed to the student (you/your)",
+  "missing": ["bullet point of any key concept missing", "..."]
+}
+
+Be generous if the student covers the core idea in their own words; be strict only if the answer is wrong or off-topic.`;
+    const { text } = await generateText({ model: getModel(), prompt });
+    const parsed = tryParseJson<{
+      score: number;
+      verdict: string;
+      feedback: string;
+      missing: string[];
+    }>(text);
+    if (!parsed) throw new Error("Grading failed.");
+    return {
+      score: Math.max(0, Math.min(10, Number(parsed.score) || 0)),
+      verdict: parsed.verdict ?? "Partially correct",
+      feedback: parsed.feedback ?? "",
+      missing: Array.isArray(parsed.missing) ? parsed.missing : [],
+    };
+  });
+
+/* -------------------- Translation -------------------- */
+
+export const translateText = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        text: z.string().min(1),
+        targetLanguage: z.string().min(2),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const prompt = `Translate the following Markdown content into ${data.targetLanguage}. Preserve all Markdown formatting (headings, lists, bold, code). Do not add commentary. Translate naturally, not literally.
+
+CONTENT:
+${trimContext(data.text, 30_000)}`;
+    const { text } = await generateText({ model: getModel(), prompt });
+    return { translation: text };
+  });
+
+/* -------------------- Import from URL -------------------- */
+
+export const importFromUrl = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ url: z.string().url() }).parse(d))
+  .handler(async ({ data }) => {
+    const res = await fetch(data.url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; StudyBuddy/1.0; +https://lovable.dev)",
+        Accept: "text/html,application/xhtml+xml,application/xml,*/*",
+      },
+    });
+    if (!res.ok) throw new Error(`Fetch failed: HTTP ${res.status}`);
+    const html = await res.text();
+
+    // Pull title
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch?.[1]?.trim() ?? data.url;
+
+    // Strip script/style/nav/footer
+    let body = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+      .replace(/<header[\s\S]*?<\/header>/gi, " ")
+      .replace(/<aside[\s\S]*?<\/aside>/gi, " ");
+
+    // Preserve paragraph/heading breaks
+    body = body
+      .replace(/<\/(p|div|h[1-6]|li|br|tr|section|article)>/gi, "\n\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    if (body.length < 200) throw new Error("Couldn't find meaningful content at that URL.");
+
+    // Chunk into ~1500-char pseudo-pages for citations
+    const chunkSize = 1500;
+    const chunks: string[] = [];
+    for (let i = 0; i < body.length; i += chunkSize) {
+      chunks.push(body.slice(i, i + chunkSize));
+    }
+    const pages = chunks.map((text, idx) => ({ page: idx + 1, text: text.trim() }));
+    const content = pages
+      .map((p) => `\n\n--- Page ${p.page} ---\n${p.text}`)
+      .join("\n")
+      .trim();
+
+    return {
+      pdfName: title.slice(0, 120),
+      totalPages: pages.length,
+      content,
+      pages,
+    };
+  });
