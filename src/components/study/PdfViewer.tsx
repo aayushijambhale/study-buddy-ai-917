@@ -35,6 +35,7 @@ export function PdfViewer() {
       setLoading(true);
       try {
         const buf = await file.arrayBuffer();
+        const pdfjsLib = await loadPdfjs();
         const doc = await pdfjsLib.getDocument({ data: buf }).promise;
         if (cancelled) return;
         docRef.current = doc;
