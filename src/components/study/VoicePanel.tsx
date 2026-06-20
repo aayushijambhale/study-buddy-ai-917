@@ -9,8 +9,8 @@ import { askPdf } from "@/lib/study.functions";
 import { useSpeechRecognition, speak, stopSpeaking } from "@/hooks/use-voice";
 
 export function VoicePanel() {
-  const { pdf } = useStudy();
-  const voice = useSpeechRecognition();
+  const { pdf, language, bump } = useStudy();
+  const voice = useSpeechRecognition(language.bcp47);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastQ, setLastQ] = useState("");
@@ -32,9 +32,17 @@ export function VoicePanel() {
     setBusy(true);
     setAnswer("");
     try {
-      const res = await askPdf({ data: { text: pdf.content, question: q } });
+      const langInstruction =
+        language.code === "en"
+          ? ""
+          : `\n\nIMPORTANT: Respond entirely in ${language.name}.`;
+      const res = await askPdf({
+        data: { text: pdf.content, question: q + langInstruction },
+      });
       setAnswer(res.answer);
-      speak(res.answer.replace(/[#*_`>-]/g, ""));
+      bump("questionsAsked");
+      bump("readAloudCount");
+      speak(res.answer.replace(/[#*_`>-]/g, ""), language.bcp47);
     } catch {
       toast.error("Voice query failed.");
     } finally {
@@ -99,7 +107,7 @@ export function VoicePanel() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => speak(answer.replace(/[#*_`>-]/g, ""))}
+                onClick={() => speak(answer.replace(/[#*_`>-]/g, ""), language.bcp47)}
               >
                 <FiVolume2 className="mr-1" /> Replay
               </Button>
