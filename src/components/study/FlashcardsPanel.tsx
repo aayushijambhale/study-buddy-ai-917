@@ -1,30 +1,61 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiZap, FiChevronLeft, FiChevronRight, FiVolume2 } from "react-icons/fi";
+import {
+  FiZap,
+  FiVolume2,
+  FiRefreshCw,
+  FiClock,
+  FiCheck,
+} from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useStudy } from "@/context/StudyContext";
+import { useStudy, type Flashcard } from "@/context/StudyContext";
 import { generateFlashcards } from "@/lib/study.functions";
 import { speak } from "@/hooks/use-voice";
+import { initialSM2, isDue, reviewSM2, dueLabel } from "@/lib/sm2";
+import { cn } from "@/lib/utils";
 
 export function FlashcardsPanel() {
-  const { pdf, flashcards, setFlashcards, bump } = useStudy();
+  const {
+    pdf,
+    flashcards,
+    setFlashcards,
+    updateFlashcard,
+    bump,
+    awardXp,
+    language,
+  } = useStudy();
   const [loading, setLoading] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [sessionStats, setSessionStats] = useState({ done: 0, correct: 0 });
 
-  if (!pdf) {
-    return <Empty msg="Upload a PDF first to generate flashcards." />;
-  }
+  const dueCards = useMemo(
+    () =>
+      flashcards
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => isDue(c.sm2)),
+    [flashcards],
+  );
 
   const run = async () => {
+    if (!pdf) return;
     setLoading(true);
     try {
       const res = await generateFlashcards({ data: { text: pdf.content } });
-      setFlashcards(res.cards);
+      const withSm2: Flashcard[] = res.cards.map((c) => ({
+        front: c.front,
+        back: c.back,
+        sm2: initialSM2(),
+      }));
+      setFlashcards(withSm2);
       setIndex(0);
       setFlipped(false);
-      bump("flashcardsGenerated", res.cards.length);
+      setReviewMode(false);
+      bump("flashcardsGenerated", withSm2.length);
+      awardXp(15);
+      toast.success(`Generated ${withSm2.length} cards`);
     } catch (e) {
       console.error(e);
       toast.error("Couldn't generate flashcards.");
@@ -33,16 +64,42 @@ export function FlashcardsPanel() {
     }
   };
 
-  const card = flashcards[index];
+  // Browse mode card (all cards) vs review (due only)
+  const list = reviewMode ? dueCards.map((d) => d.c) : flashcards;
+  const card = list[index];
 
   const next = () => {
     setFlipped(false);
-    setIndex((i) => (i + 1) % flashcards.length);
+    setIndex((i) => (list.length ? (i + 1) % list.length : 0));
   };
   const prev = () => {
     setFlipped(false);
-    setIndex((i) => (i - 1 + flashcards.length) % flashcards.length);
+    setIndex((i) => (list.length ? (i - 1 + list.length) % list.length : 0));
   };
+
+  const review = (quality: 0 | 3 | 4 | 5) => {
+    if (!reviewMode) return;
+    const original = dueCards[index];
+    if (!original) return;
+    const updated: Flashcard = {
+      ...original.c,
+      sm2: reviewSM2(original.c.sm2, quality),
+    };
+    updateFlashcard(original.i, updated);
+    bump("cardsReviewed");
+    awardXp(quality >= 3 ? 5 : 2);
+    setSessionStats((s) => ({
+      done: s.done + 1,
+      correct: s.correct + (quality >= 3 ? 1 : 0),
+    }));
+    setFlipped(false);
+    // After update, dueCards recomputes — keep index pointing to next-in-list
+    setIndex((i) => Math.min(i, Math.max(0, dueCards.length - 2)));
+  };
+
+  if (!pdf && !flashcards.length) {
+    return <Empty msg="Upload a PDF first to generate flashcards." />;
+  }
 
   return (
     <div className="space-y-6">
@@ -50,17 +107,55 @@ export function FlashcardsPanel() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Flashcards</h1>
           <p className="text-muted-foreground mt-1">
-            Spaced-repetition style cards generated from your PDF. Click a card to flip it.
+            Spaced repetition using the SM-2 algorithm. Cards re-appear when they're due.
           </p>
         </div>
-        <Button onClick={run} disabled={loading}>
-          <FiZap className="mr-1" /> {flashcards.length ? "Regenerate" : loading ? "Generating…" : "Generate cards"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {flashcards.length > 0 && (
+            <Button
+              variant={reviewMode ? "default" : "outline"}
+              onClick={() => {
+                if (!dueCards.length) {
+                  toast.info("Nothing is due right now. Check back later!");
+                  return;
+                }
+                setReviewMode((v) => !v);
+                setIndex(0);
+                setFlipped(false);
+                setSessionStats({ done: 0, correct: 0 });
+              }}
+            >
+              <FiClock className="mr-1" />
+              {reviewMode ? "Exit review" : `Review (${dueCards.length} due)`}
+            </Button>
+          )}
+          {pdf && (
+            <Button onClick={run} disabled={loading} variant={flashcards.length ? "outline" : "default"}>
+              <FiZap className="mr-1" />
+              {flashcards.length
+                ? loading
+                  ? "Generating…"
+                  : "Regenerate"
+                : loading
+                ? "Generating…"
+                : "Generate cards"}
+            </Button>
+          )}
+        </div>
       </header>
 
-      {!flashcards.length && !loading && (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground">
-          Generate a deck to start reviewing.
+      {flashcards.length > 0 && (
+        <div className="glass rounded-2xl p-4 grid grid-cols-3 gap-3 text-center text-sm">
+          <Stat label="Total" value={flashcards.length} />
+          <Stat label="Due now" value={dueCards.length} />
+          <Stat
+            label="Avg ease"
+            value={
+              (
+                flashcards.reduce((a, c) => a + c.sm2.ease, 0) / flashcards.length
+              ).toFixed(2)
+            }
+          />
         </div>
       )}
 
@@ -70,10 +165,28 @@ export function FlashcardsPanel() {
         </div>
       )}
 
+      {!loading && reviewMode && list.length === 0 && (
+        <div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground">
+          🎉 You're all caught up. Session: {sessionStats.correct}/{sessionStats.done} correct.
+          <div className="mt-3">
+            <Button variant="outline" onClick={() => setReviewMode(false)}>
+              Browse deck
+            </Button>
+          </div>
+        </div>
+      )}
+
       {card && (
         <>
-          <div className="text-center text-sm text-muted-foreground">
-            Card {index + 1} of {flashcards.length}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Card {index + 1} of {list.length}
+              {reviewMode && ` • Session ${sessionStats.correct}/${sessionStats.done}`}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <FiClock className="size-3.5" /> {dueLabel(card.sm2)}
+              <span className="opacity-60">· ease {card.sm2.ease.toFixed(2)}</span>
+            </span>
           </div>
           <div className="[perspective:1500px]">
             <motion.button
@@ -89,19 +202,66 @@ export function FlashcardsPanel() {
               <CardFace label="Answer" content={card.back} back />
             </motion.button>
           </div>
-          <div className="flex justify-center items-center gap-3">
-            <Button variant="outline" size="lg" onClick={prev} aria-label="Previous card">
-              <FiChevronLeft />
-            </Button>
-            <Button variant="ghost" onClick={() => speak(flipped ? card.back : card.front)}>
-              <FiVolume2 className="mr-1" /> Read
-            </Button>
-            <Button variant="outline" size="lg" onClick={next} aria-label="Next card">
-              <FiChevronRight />
-            </Button>
-          </div>
+
+          {reviewMode ? (
+            <div className="grid grid-cols-4 gap-2">
+              <ReviewBtn label="Again" color="bg-destructive" onClick={() => review(0)} />
+              <ReviewBtn label="Hard" color="bg-amber-500" onClick={() => review(3)} />
+              <ReviewBtn label="Good" color="bg-emerald-500" onClick={() => review(4)} />
+              <ReviewBtn label="Easy" color="bg-sky-500" onClick={() => review(5)} />
+            </div>
+          ) : (
+            <div className="flex justify-center items-center gap-3">
+              <Button variant="outline" size="lg" onClick={prev} aria-label="Previous card">
+                <FiRefreshCw className="rotate-180" />
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => speak(flipped ? card.back : card.front, language.bcp47)}
+              >
+                <FiVolume2 className="mr-1" /> Read
+              </Button>
+              <Button variant="outline" size="lg" onClick={next} aria-label="Next card">
+                <FiRefreshCw />
+              </Button>
+            </div>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+function ReviewBtn({
+  label,
+  color,
+  onClick,
+}: {
+  label: string;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-xl px-3 py-3 text-sm font-semibold text-white shadow-card hover:opacity-90 transition-opacity",
+        color,
+      )}
+    >
+      <FiCheck className="inline mr-1.5" />
+      {label}
+    </button>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-2xl font-bold mt-1">{value}</div>
     </div>
   );
 }
