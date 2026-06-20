@@ -13,7 +13,7 @@ interface SpeechRecognitionLike {
   onerror: (e: unknown) => void;
 }
 
-export function useSpeechRecognition() {
+export function useSpeechRecognition(lang = "en-US") {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const recRef = useRef<SpeechRecognitionLike | null>(null);
@@ -26,7 +26,7 @@ export function useSpeechRecognition() {
     const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!Ctor) return;
     const rec = new Ctor();
-    rec.lang = "en-US";
+    rec.lang = lang;
     rec.continuous = false;
     rec.interimResults = true;
     rec.onresult = (e) => {
@@ -39,7 +39,7 @@ export function useSpeechRecognition() {
     rec.onend = () => setListening(false);
     rec.onerror = () => setListening(false);
     recRef.current = rec;
-  }, []);
+  }, [lang]);
 
   const supported = typeof window !== "undefined" &&
     !!((window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition ||
@@ -58,12 +58,21 @@ export function useSpeechRecognition() {
   return { supported, listening, transcript, start, stop, setTranscript };
 }
 
-export function speak(text: string) {
+export function speak(text: string, lang?: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.rate = 1;
   u.pitch = 1;
+  if (lang) {
+    u.lang = lang;
+    // Try to pick a matching voice
+    const voices = window.speechSynthesis.getVoices();
+    const match =
+      voices.find((v) => v.lang === lang) ||
+      voices.find((v) => v.lang.startsWith(lang.split("-")[0]));
+    if (match) u.voice = match;
+  }
   window.speechSynthesis.speak(u);
 }
 

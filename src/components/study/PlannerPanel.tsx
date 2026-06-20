@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useStudy } from "@/context/StudyContext";
 import { generateStudyPlan } from "@/lib/study.functions";
+import { PomodoroTimer } from "./PomodoroTimer";
 
 export function PlannerPanel() {
-  const { pdf, studyPlan, setStudyPlan } = useStudy();
+  const { pdf, studyPlan, setStudyPlan, awardXp, gamification, setWeeklyGoal } = useStudy();
   const [examDate, setExamDate] = useState("");
   const [chapters, setChapters] = useState("");
   const [hours, setHours] = useState(3);
@@ -38,6 +39,8 @@ export function PlannerPanel() {
         overview: res.overview,
         days: res.days,
       });
+      awardXp(20);
+      toast.success("Plan ready!");
     } catch (e) {
       console.error(e);
       toast.error("Couldn't build your plan.");
@@ -46,14 +49,53 @@ export function PlannerPanel() {
     }
   };
 
+  const pct = Math.min(
+    100,
+    Math.round((gamification.weeklyMinutes / Math.max(1, gamification.weeklyGoal)) * 100),
+  );
+
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Study Planner</h1>
         <p className="text-muted-foreground mt-1">
           Tell us when your exam is and what's left to cover — we'll build a day-by-day plan.
+          Use the Pomodoro timer to track focus sessions toward your weekly goal.
         </p>
       </header>
+
+      <div className="grid lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
+          <PomodoroTimer />
+        </div>
+        <div className="glass rounded-2xl p-5">
+          <div className="text-sm font-semibold mb-1">Weekly study goal</div>
+          <div className="text-xs text-muted-foreground mb-3">
+            {gamification.weeklyMinutes} / {gamification.weeklyGoal} min
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden mb-3">
+            <motion.div
+              className="h-full bg-gradient-primary"
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.6 }}
+            />
+          </div>
+          <Label htmlFor="weekly-goal" className="text-xs">
+            Goal (minutes/week)
+          </Label>
+          <Input
+            id="weekly-goal"
+            type="number"
+            min={30}
+            max={2000}
+            step={30}
+            value={gamification.weeklyGoal}
+            onChange={(e) => setWeeklyGoal(Number(e.target.value) || 180)}
+            className="mt-1.5"
+          />
+        </div>
+      </div>
 
       <div className="glass rounded-2xl p-5 grid md:grid-cols-3 gap-4">
         <div>

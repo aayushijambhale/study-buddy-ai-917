@@ -1,17 +1,21 @@
 import { useCallback, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { FiUploadCloud, FiFileText, FiCheckCircle } from "react-icons/fi";
+import { FiUploadCloud, FiFileText, FiCheckCircle, FiLink, FiGlobe } from "react-icons/fi";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { extractPdfText } from "@/lib/pdf-extract";
+import { importFromUrl } from "@/lib/study.functions";
 import { useStudy } from "@/context/StudyContext";
 
 export function UploadPanel({ onDone }: { onDone?: () => void }) {
-  const { pdf, setPdf, setFile } = useStudy();
+  const { pdf, setPdf, setFile, awardXp } = useStudy();
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [url, setUrl] = useState("");
+  const [urlBusy, setUrlBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
@@ -30,6 +34,7 @@ export function UploadPanel({ onDone }: { onDone?: () => void }) {
         const data = await extractPdfText(file, setProgress);
         setPdf(data);
         setFile(file);
+        awardXp(10);
         toast.success(`Extracted ${data.totalPages} pages from ${data.pdfName}`);
         onDone?.();
       } catch (e) {
@@ -39,16 +44,37 @@ export function UploadPanel({ onDone }: { onDone?: () => void }) {
         setBusy(false);
       }
     },
-    [setPdf, setFile, onDone],
+    [setPdf, setFile, onDone, awardXp],
   );
+
+  const handleUrl = async () => {
+    if (!/^https?:\/\//i.test(url)) {
+      toast.error("Enter a valid http(s) URL.");
+      return;
+    }
+    setUrlBusy(true);
+    try {
+      const data = await importFromUrl({ data: { url } });
+      setPdf(data);
+      setFile(null);
+      awardXp(10);
+      toast.success(`Imported ${data.totalPages} chunks from URL`);
+      onDone?.();
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Failed to import URL");
+    } finally {
+      setUrlBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Upload your study material</h1>
         <p className="text-muted-foreground mt-1">
-          Drop a textbook, lecture notes, slides, or research paper. We'll turn it into notes, a
-          quiz, and a tutor you can chat with.
+          Drop a textbook, paste a research-paper link, or import a Wikipedia article — we'll
+          turn it into notes, a quiz, flashcards, and a tutor you can chat with.
         </p>
       </header>
 
@@ -92,6 +118,31 @@ export function UploadPanel({ onDone }: { onDone?: () => void }) {
           Choose file
         </Button>
       </motion.label>
+
+      <div className="glass rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-2 text-sm font-semibold">
+          <FiGlobe className="text-primary" /> Import from URL
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Paste a Wikipedia article, blog post, documentation page, or research summary.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <FiLink className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://en.wikipedia.org/wiki/Neural_network"
+              className="pl-9"
+              disabled={urlBusy}
+              onKeyDown={(e) => e.key === "Enter" && handleUrl()}
+            />
+          </div>
+          <Button onClick={handleUrl} disabled={urlBusy || !url}>
+            {urlBusy ? "Importing…" : "Import"}
+          </Button>
+        </div>
+      </div>
 
       {busy && (
         <div className="glass rounded-2xl p-5">
