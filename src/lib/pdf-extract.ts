@@ -18,7 +18,9 @@ export async function extractPdfText(
   onProgress?: (pct: number) => void,
 ): Promise<ExtractedPdf> {
   const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pdfjsLib = await import("pdfjs-dist");
+  const workerSrc = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
   const total = pdf.numPages;
   const pages: PdfPage[] = [];
 
