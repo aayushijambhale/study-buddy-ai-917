@@ -293,6 +293,8 @@ interface GradeResult {
   verdict: string;
   feedback: string;
   missing: string[];
+  evidence: string;
+  sourcePage: number | null;
 }
 
 function ShortList({ quiz }: { quiz: QuizData }) {
@@ -306,7 +308,7 @@ function ShortList({ quiz }: { quiz: QuizData }) {
 }
 
 function ShortItem({ q, idx }: { q: QuizShort; idx: number }) {
-  const { bump, awardXp } = useStudy();
+  const { bump, awardXp, pdf, openPdfAt } = useStudy();
   const [answer, setAnswer] = useState("");
   const [grading, setGrading] = useState(false);
   const [grade, setGrade] = useState<GradeResult | null>(null);
@@ -319,8 +321,17 @@ function ShortItem({ q, idx }: { q: QuizShort; idx: number }) {
     }
     setGrading(true);
     try {
+      const excerpt = q.sourcePage
+        ? pdf?.pages.find((p) => p.page === q.sourcePage)?.text.slice(0, 1200)
+        : undefined;
       const res = await gradeShortAnswer({
-        data: { question: q.question, modelAnswer: q.answer, studentAnswer: answer },
+        data: {
+          question: q.question,
+          modelAnswer: q.answer,
+          studentAnswer: answer,
+          sourcePage: q.sourcePage,
+          sourceExcerpt: excerpt,
+        },
       });
       setGrade(res);
       bump("answersGraded");
@@ -381,6 +392,25 @@ function ShortItem({ q, idx }: { q: QuizShort; idx: number }) {
             <div className="text-2xl font-bold tabular-nums">{grade.score}/10</div>
           </div>
           <div className="text-sm">{grade.feedback}</div>
+          {grade.evidence && (
+            <div className="rounded-lg bg-background/60 border border-current/20 p-2 text-xs italic">
+              “{grade.evidence}”
+              {grade.sourcePage && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const snippet = pdf?.pages
+                      .find((pg) => pg.page === grade.sourcePage)
+                      ?.text.slice(0, 280);
+                    openPdfAt(grade.sourcePage!, snippet);
+                  }}
+                  className="ml-2 not-italic inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-current/10 border border-current/30 hover:bg-current/20"
+                >
+                  Open p.{grade.sourcePage}
+                </button>
+              )}
+            </div>
+          )}
           {grade.missing.length > 0 && (
             <div className="text-sm">
               <span className="font-medium">Missing:</span>

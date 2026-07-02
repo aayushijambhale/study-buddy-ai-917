@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { FiShare2, FiZap, FiDownload } from "react-icons/fi";
+import { FiShare2, FiZap, FiDownload, FiImage } from "react-icons/fi";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useStudy, type MindMap } from "@/context/StudyContext";
 import { generateMindMap } from "@/lib/study.functions";
+import { downloadMindMapSvg, downloadMindMapPng } from "@/lib/mindmap-export";
 
 export function MindMapPanel() {
   const { pdf, mindMap, setMindMap, bump, awardXp } = useStudy();
@@ -46,9 +47,25 @@ export function MindMapPanel() {
         </div>
         <div className="flex gap-2">
           {mindMap && (
-            <Button variant="outline" onClick={() => downloadSvg(mindMap)}>
-              <FiDownload className="mr-1" /> Download SVG
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => downloadMindMapSvg(mindMap)}>
+                <FiDownload className="mr-1" /> SVG
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await downloadMindMapPng(mindMap);
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("PNG export failed — SVG downloaded instead.");
+                    downloadMindMapSvg(mindMap);
+                  }
+                }}
+              >
+                <FiImage className="mr-1" /> PNG
+              </Button>
+            </>
           )}
           <Button onClick={run} disabled={loading}>
             <FiZap className="mr-1" />
@@ -217,15 +234,3 @@ function MindMapSvg({
   );
 }
 
-function downloadSvg(mindMap: MindMap) {
-  const svgEl = document.querySelector("svg[aria-label^='Mind map']");
-  if (!svgEl) return;
-  const xml = new XMLSerializer().serializeToString(svgEl);
-  const blob = new Blob([xml], { type: "image/svg+xml" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${mindMap.topic.replace(/[^a-z0-9-]+/gi, "_")}-mindmap.svg`;
-  a.click();
-  URL.revokeObjectURL(url);
-}

@@ -60,12 +60,20 @@ function Landing() {
           </div>
           <span className="font-semibold">Study Buddy</span>
         </div>
-        <Link
-          to="/app"
-          className="text-sm font-medium px-4 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition"
-        >
-          Launch app
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/rooms"
+            className="text-sm font-medium px-4 py-2 rounded-full border hover:bg-muted transition"
+          >
+            Study rooms
+          </Link>
+          <Link
+            to="/app"
+            className="text-sm font-medium px-4 py-2 rounded-full bg-primary text-primary-foreground hover:opacity-90 transition"
+          >
+            Launch app
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}
