@@ -317,22 +317,29 @@ export const gradeShortAnswer = createServerFn({ method: "POST" })
         question: z.string().min(2),
         modelAnswer: z.string().min(1),
         studentAnswer: z.string().min(1),
+        sourcePage: z.number().int().positive().optional(),
+        sourceExcerpt: z.string().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
+    const excerpt = data.sourceExcerpt
+      ? `\nSOURCE EXCERPT (from page ${data.sourcePage ?? "?"} of the student's PDF):\n"""${data.sourceExcerpt.slice(0, 1200)}"""`
+      : "";
     const prompt = `You are a fair exam grader. Compare the student's answer against the model answer and grade it.
 
 QUESTION: ${data.question}
 MODEL ANSWER: ${data.modelAnswer}
-STUDENT ANSWER: ${data.studentAnswer}
+STUDENT ANSWER: ${data.studentAnswer}${excerpt}
 
 Return ONLY valid JSON, no fences:
 {
   "score": <0-10 integer>,
   "verdict": "Correct" | "Partially correct" | "Incorrect",
-  "feedback": "1-2 sentence feedback addressed to the student (you/your)",
-  "missing": ["bullet point of any key concept missing", "..."]
+  "feedback": "1-2 sentence feedback addressed to the student (you/your). If a SOURCE EXCERPT was provided, quote or paraphrase the specific passage that supports the correct answer.",
+  "missing": ["bullet point of any key concept missing", "..."],
+  "evidence": "A short (<= 200 char) verbatim quote from the SOURCE EXCERPT that backs up the correct answer, or empty string if none.",
+  "sourcePage": ${data.sourcePage ?? "null"}
 }
 
 Be generous if the student covers the core idea in their own words; be strict only if the answer is wrong or off-topic.`;
@@ -342,6 +349,8 @@ Be generous if the student covers the core idea in their own words; be strict on
       verdict: string;
       feedback: string;
       missing: string[];
+      evidence?: string;
+      sourcePage?: number | null;
     }>(text);
     if (!parsed) throw new Error("Grading failed.");
     return {
@@ -349,6 +358,11 @@ Be generous if the student covers the core idea in their own words; be strict on
       verdict: parsed.verdict ?? "Partially correct",
       feedback: parsed.feedback ?? "",
       missing: Array.isArray(parsed.missing) ? parsed.missing : [],
+      evidence: (parsed.evidence ?? "").trim(),
+      sourcePage:
+        typeof parsed.sourcePage === "number" && parsed.sourcePage > 0
+          ? parsed.sourcePage
+          : data.sourcePage ?? null,
     };
   });
 
