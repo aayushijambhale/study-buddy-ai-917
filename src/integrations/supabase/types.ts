@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      room_messages: {
+        Row: {
+          content: string
+          created_at: string
+          display_name: string
+          id: string
+          kind: string
+          meta: Json | null
+          reply_to: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          display_name: string
+          id?: string
+          kind: string
+          meta?: Json | null
+          reply_to?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          kind?: string
+          meta?: Json | null
+          reply_to?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "room_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "study_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_rooms: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          pdf_name: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          pdf_name?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          pdf_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
