@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import {
   FiUpload,
   FiBookOpen,
@@ -16,6 +17,7 @@ import {
   FiShare2,
   FiGlobe,
   FiZap,
+  FiUsers,
 } from "react-icons/fi";
 import { useStudy, LANGUAGES } from "@/context/StudyContext";
 import { level } from "@/lib/gamification";
@@ -110,6 +112,15 @@ export function Sidebar({
       </nav>
 
       <div className="mt-auto pt-4 space-y-2">
+        <Link
+          to="/rooms"
+          className="flex items-center justify-between rounded-xl bg-sidebar-accent/40 px-3 py-2 text-sm hover:bg-sidebar-accent/60 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <FiUsers /> Study Rooms
+          </span>
+          <span className="text-[10px] opacity-60">live</span>
+        </Link>
         <LanguagePicker />
         <ThemeToggle />
         <FontScaleToggle />
