@@ -77,13 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Study Buddy — Accessible AI study, editorially crafted" },
+      { title: "Study Buddy — Editorial AI study, accessible to all" },
       {
         name: "description",
         content:
           "Turn any PDF into smart notes, quizzes, flashcards, and a voice tutor. Editorial, accessibility-first study workspace for every learner.",
       },
-      { property: "og:title", content: "Study Buddy — Accessible AI study workspace" },
+      { property: "og:title", content: "Study Buddy — Editorial AI study, accessible to all" },
       {
         property: "og:description",
         content:
@@ -91,6 +91,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Study Buddy — Editorial AI study, accessible to all" },
+      { name: "description", content: "Turn any PDF into smart notes, quizzes, flashcards, mind maps, and a voice tutor — designed accessibility-first in a calm editorial workspace." },
+      { property: "og:description", content: "Turn any PDF into smart notes, quizzes, flashcards, mind maps, and a voice tutor — designed accessibility-first in a calm editorial workspace." },
+      { name: "twitter:description", content: "Turn any PDF into smart notes, quizzes, flashcards, mind maps, and a voice tutor — designed accessibility-first in a calm editorial workspace." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a95c712c-df0e-4e68-850e-667a8370b53e/id-preview-3b99cec2--f05757c9-c443-4ed4-9e45-801eb0cc336a.lovable.app-1783170113513.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a95c712c-df0e-4e68-850e-667a8370b53e/id-preview-3b99cec2--f05757c9-c443-4ed4-9e45-801eb0cc336a.lovable.app-1783170113513.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
