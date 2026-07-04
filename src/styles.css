@@ -41,45 +41,50 @@
 }
 
 :root {
-  --radius: 0.875rem;
+  --radius: 0.5rem;
 
-  /* Teal study theme */
-  --background: oklch(0.985 0.012 85);          /* #FFFBF5 warm cream */
-  --foreground: oklch(0.32 0.04 180);            /* #134E4A deep teal */
-  --card: oklch(1 0 0);                          /* #FFFFFF */
-  --card-foreground: oklch(0.32 0.04 180);
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Emerald Prestige — editorial */
+  --background: oklch(0.965 0.028 92);            /* #f5f0e0 cream */
+  --foreground: oklch(0.22 0.015 60);              /* near-black ink */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.015 60);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.32 0.04 180);
+  --popover-foreground: oklch(0.22 0.015 60);
 
-  --primary: oklch(0.51 0.09 180);               /* #0F766E teal-700 */
-  --primary-foreground: oklch(0.985 0.012 85);
-  --accent: oklch(0.72 0.13 180);                /* #14B8A6 teal-500 */
-  --accent-foreground: oklch(0.2 0.03 180);
+  --primary: oklch(0.36 0.07 165);                 /* #064e3b deep emerald */
+  --primary-foreground: oklch(0.965 0.028 92);
+  --accent: oklch(0.78 0.13 82);                   /* #c9a84c gold */
+  --accent-foreground: oklch(0.22 0.015 60);
 
-  --secondary: oklch(0.94 0.025 170);
-  --secondary-foreground: oklch(0.32 0.04 180);
-  --muted: oklch(0.95 0.015 100);
-  --muted-foreground: oklch(0.48 0.03 180);
-  --destructive: oklch(0.6 0.22 27);
-  --destructive-foreground: oklch(0.99 0.01 100);
-  --border: oklch(0.9 0.02 170);
-  --input: oklch(0.92 0.02 170);
-  --ring: oklch(0.72 0.13 180);
+  --secondary: oklch(0.94 0.03 90);
+  --secondary-foreground: oklch(0.36 0.07 165);
+  --muted: oklch(0.94 0.02 90);
+  --muted-foreground: oklch(0.45 0.03 90);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.985 0.01 90);
+  --border: oklch(0.78 0.13 82 / 25%);             /* gold hairline */
+  --input: oklch(0.88 0.04 90);
+  --ring: oklch(0.78 0.13 82);
 
-  --sidebar: oklch(0.51 0.09 180);
-  --sidebar-foreground: oklch(0.97 0.02 170);
-  --sidebar-primary: oklch(0.72 0.13 180);
-  --sidebar-primary-foreground: oklch(0.2 0.03 180);
-  --sidebar-accent: oklch(0.42 0.07 180);
-  --sidebar-accent-foreground: oklch(0.97 0.02 170);
-  --sidebar-border: oklch(0.42 0.07 180);
-  --sidebar-ring: oklch(0.72 0.13 180);
 
-  --gradient-primary: linear-gradient(135deg, oklch(0.51 0.09 180), oklch(0.72 0.13 180));
-  --gradient-soft: linear-gradient(180deg, oklch(0.99 0.01 100), oklch(0.96 0.02 170));
-  --shadow-glass: 0 8px 32px -8px color-mix(in oklab, oklch(0.32 0.04 180) 18%, transparent);
-  --shadow-card: 0 4px 20px -8px color-mix(in oklab, oklch(0.32 0.04 180) 15%, transparent);
+  --sidebar: oklch(0.36 0.07 165);
+  --sidebar-foreground: oklch(0.965 0.028 92);
+  --sidebar-primary: oklch(0.78 0.13 82);
+  --sidebar-primary-foreground: oklch(0.22 0.015 60);
+  --sidebar-accent: oklch(0.30 0.06 165);
+  --sidebar-accent-foreground: oklch(0.965 0.028 92);
+  --sidebar-border: oklch(0.30 0.06 165);
+  --sidebar-ring: oklch(0.78 0.13 82);
+
+  --gradient-primary: linear-gradient(135deg, oklch(0.36 0.07 165), oklch(0.48 0.09 165));
+  --gradient-soft: linear-gradient(180deg, oklch(0.985 0.02 92), oklch(0.94 0.03 90));
+  --shadow-glass: 0 8px 32px -12px color-mix(in oklab, oklch(0.22 0.015 60) 22%, transparent);
+  --shadow-card: 0 1px 2px 0 color-mix(in oklab, oklch(0.22 0.015 60) 8%, transparent), 0 8px 24px -12px color-mix(in oklab, oklch(0.22 0.015 60) 18%, transparent);
 }
+
 
 .dark {
   --background: oklch(0.19 0.025 195);           /* deep teal-slate */
@@ -165,8 +170,14 @@ html[data-font-scale="xl"] { font-size: 20px; }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
   }
+  h1, h2, h3, .font-serif, .font-display {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+
   *:focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
